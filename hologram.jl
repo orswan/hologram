@@ -59,9 +59,15 @@ end
 
 #---------------- Fourier transform -----------------------------
 
-function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number)
+function subdivide(a::Array{<:Number,2},refinement)
+	# Subdivides an array so that each lattice point expands to "refinement" number of lattice points.
+	return kron(a,ones(refinement,refinement))
+end
+
+function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number; refinement=1)
 	# Computes the electric field for a given phase profile and incident laser waist size.
 		# Computes Fourier transform of phase with Gaussian envelope of given waist.
+		# Refinement specifies how finely to subdivide the pixels. 
 	if (typeof(phase)<:Array{<:Number,2}) && (size(phase) != (S.pixels...,))
 		throw(ArgumentError,"Phase and number of pixels inconsistent")
 	end
@@ -70,12 +76,23 @@ function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number)
 	return exp.(-r2/waist^2 .+ im*discPhase)
 end
 
-function ft(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number)
+function ft(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number;wrap=true)
 	# Computes Fourier transform of phase with Gaussian envelope of given waist.
+	if wrap
+		out = abs.(fft(Efield(S,phase,waist))).^2
+		sx,sy = size(out)
+		return circshift(out, [floor(sx/2),floor(sy/2)])
+	else
 		return abs.(fft(Efield(S,phase,waist))).^2
+	end
 end
 
+#------------------ Lensing with the SLM --------------------------
 
+function hololens(S::SLM,f::Number)
+	
+	
+end
 
 
 end

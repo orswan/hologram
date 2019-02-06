@@ -4,7 +4,23 @@ module hologram
 using LinearAlgebra
 using FFTW
 
+#------------ Typical usage -------------------------------------
+"""
+> import hologram
+> using Plots
+> plotly()
+> H = hologram
+> intensityProfile = abs.(H.ft(H.S512,( (x,y)-> (x^2 + y^2)/3e5 ),400;refinement=10)).^2
+> plot(intensityProfile,st=:surface)
+> intensityProfile = abs.(H.ft(H.S512,( (x,y)-> (x^2 + y^2)/3e4 + x/10 ),400;refinement=10)).^2;
+> plot(intensityProfile,st=:surface)
+"""
 #------------ SLM struct ----------------------------------------
+
+function midpointLattice(low::Number,high::Number,npoints::Integer)
+	# Makes an array of npoints located symmetrically along interval [low,high], excluding the enpoints.
+	return range(low,stop=high,length=(2*npoints+1))[2:2:end]
+end
 
 struct SLM
 	pixels
@@ -16,8 +32,8 @@ struct SLM
 	centerx
 	centery
 	SLM(pixels,pixelSize,size,voltLevels) = new(pixels,pixelSize,size,voltLevels,
-				range(pixelSize[1]/2,stop=size[1]-pixelSize[1]/2,length=pixels[1]),
-				range(pixelSize[2]/2,stop=size[2]-pixelSize[2]/2,length=pixels[2]),
+				midpointLattice(0,size[1],pixels[1]),
+				midpointLattice(0,size[2],pixels[2]),
 				size[1]/2,size[2]/2)
 end
 
@@ -76,18 +92,20 @@ function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number; r
 		throw(ArgumentError,"Phase and number of pixels inconsistent")
 	end
 	discPhase = subdivide(discretizePhase(S,phase),refinement)
-	r2 = (subdivide(S.pixelx,refinement) .- S.centerx).^2 .+ (subdivide(S.pixely,refinement)' .- S.centery).^2		# Radius squared
+	xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement)
+	ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement)
+	r2 = (xs .- S.centerx).^2 .+ (ys' .- S.centery).^2		# Radius squared
 	return exp.(-r2/waist^2 .+ im*discPhase)
 end
 
-function ft(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number;wrap=true)
+function ft(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number;wrap=true,refinement::Int=1)
 	# Computes Fourier transform of phase with Gaussian envelope of given waist.
 	if wrap
 		out = abs.(fft(Efield(S,phase,waist))).^2
 		sx,sy = size(out)
 		return circshift(out, [floor(sx/2),floor(sy/2)])
 	else
-		return abs.(fft(Efield(S,phase,waist))).^2
+		return abs.(fft(Efield(S,phase,waist,refinement=refinement))).^2
 	end
 end
 

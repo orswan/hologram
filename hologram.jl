@@ -63,16 +63,20 @@ function subdivide(a::Array{<:Number,2},refinement)
 	# Subdivides an array so that each lattice point expands to "refinement" number of lattice points.
 	return kron(a,ones(refinement,refinement))
 end
+function subdivide(a::Array{<:Number,1},refinement)
+	# Subdivides vector in analogy to the above array method.
+	return kron(a,ones(refinement))
+end
 
-function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number; refinement=1)
+function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number; refinement::Int=1)
 	# Computes the electric field for a given phase profile and incident laser waist size.
 		# Computes Fourier transform of phase with Gaussian envelope of given waist.
 		# Refinement specifies how finely to subdivide the pixels. 
 	if (typeof(phase)<:Array{<:Number,2}) && (size(phase) != (S.pixels...,))
 		throw(ArgumentError,"Phase and number of pixels inconsistent")
 	end
-	discPhase = discretizePhase(S,phase)
-	r2 = (S.pixelx .- S.centerx).^2 .+ (S.pixely' .- S.centery).^2		# Radius squared
+	discPhase = subdivide(discretizePhase(S,phase),refinement)
+	r2 = (subdivide(S.pixelx,refinement) .- S.centerx).^2 .+ (subdivide(S.pixely,refinement)' .- S.centery).^2		# Radius squared
 	return exp.(-r2/waist^2 .+ im*discPhase)
 end
 

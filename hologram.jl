@@ -2,7 +2,7 @@
 module hologram
 
 using LinearAlgebra
-using FFTW
+#using FFTW
 
 #------------ Typical usage -------------------------------------
 """
@@ -31,38 +31,75 @@ struct SLM
 	pixely
 	centerx
 	centery
+	cpixelx
+	cpixely
 	SLM(pixels,pixelSize,size,voltLevels) = new(pixels,pixelSize,size,voltLevels,
 				midpointLattice(0,size[1],pixels[1]),
 				midpointLattice(0,size[2],pixels[2]),
-				size[1]/2,size[2]/2)
+				size[1]/2,size[2]/2,
+				midpointLattice(-size[1]/2,size[1]/2,pixels[1]),
+				midpointLattice(-size[2]/2,size[2]/2,pixels[2])
+				)
 end
 
 SLM(pixels,pixelSize,voltLevels) = SLM(pixels,pixelSize,pixels.*pixelSize,voltLevels)
 
 function onPixel(S::SLM,x,y)
 	# Returns true if the point (x,y) lies on a pixel.
-	
+#	println(latticize(x,S.cpixelx))
+#	println(x)
+#	println(S.pixelSize[1])
+#	println(abs(latticize(x,S.cpixelx)-x))
+	return (abs(latticize(x,S.cpixelx)-x)<=S.pixelSize[1]/2) && (abs(latticize(y,S.cpixely)-y)<=S.pixelSize[2]/2)
 end
 
 Stest = SLM((10,8),(2.4,3.4),range(0,stop=3.4pi,length=102))
 Stest2 = SLM((10,8),(2.4,3.4),range(0,stop=2pi,length=52))
+Stest3 = SLM((10,8),(2.4,2.4),(70.0,68.0),range(0,stop=2pi,length=52))
 S1920 = SLM((1920,1152),(9.2,9.2),range(0,stop=2pi,length=4096))
 S512 = SLM((512,512),(15,15),range(0,stop=2pi,length=50))
+S512bad = SLM((512,512),(15,15),(9000,9000),range(0,stop=2pi,length=50))
 
 #------------ Phase discretization ------------------------------
 
-function nearestLatticeMod(x::Number,r::AbstractRange,modwhat::Number)
-	
+function latticize(x::Number,r::AbstractRange)
+	# Finds nearest point of a range r to a given point x.
+	if r[2]-r[1] < 0		# If given a backwards range, invert it before proceeding.
+		R = r[end:-1:1]
+	else
+		R = r
+	end
+	if x < R[1]				# x lies below the range.
+		return R[1]
+	elseif x > R[end]		# x lies above the range.
+		return R[end]
+	else					# x lies within the range.
+		idx = Int(round( (x-R[1])/(R[2]-R[1]) ))+1
+		return R[idx]
+	end
+end
+function latticize(x::Number,r::AbstractRange,modwhat::Number)
+	# Finds the nearest point to x in r modulo modwhat.
+	if r[2]-r[1] < 0			# If given a backwards range, invert it before proceeding.
+		R = r[end:-1:1]
+	else
+		R = r
+	end
+	xs = range(x + ceil((R[1]-x)/modwhat) * modwhat, step=modwhat, stop=R[end])
+	ls = [latticize(i,R) for i in xs]
+	return ls[ findmin( abs.(ls-xs) )[2] ]
 end
 
 function discretizePhase(S::SLM,phase::Number)
 	# Discretizes and mods phase onto available SLM levels of S.
-	return S.voltLevels[ findmin(abs.( mod(phase,2pi) .- mod.(S.voltLevels,2pi) ))[2] ]
+	 return S.voltLevels[ findmin(abs.( mod(phase,2pi) .- mod.(S.voltLevels,2pi) ))[2] ]
+#	return latticize(phase,S.voltLevels,2pi)		# This has about the same speed, but is faster without the 2pi.
 end
 
 function discretizePhase(S::SLM,phase::Array{<:Number})
 	# Discretizes an array of phases
 	return [S.voltLevels[findmin(abs.(mod(p,2pi) .- mod.(S.voltLevels,2pi)))[2]] for p in phase]
+#	return [latticize(p,S.voltLevels,2pi) for p in phase]		# This has about the same speed, but is faster without the 2pi.
 end
 
 function pixelizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
@@ -71,28 +108,32 @@ function pixelizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
 		pixely = S.pixely .- S.centery .+ offset[2]
 		return [phase(i,j) for i in pixelx, j in pixely]
 	elseif refinement>1
-		xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement)
-		ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement)
+		xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement) .- S.centerx .+ offset[1]
+		ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement) .- S.centery .+ offset[2]
 		out = zeros(length(xs),length(ys))
 		for i=1:refinement
 			for j=1:refinement
-				if 
+				if onPixel(S,xs[i],ys[j])
+					out[i:refinement:end,j:refinement:end] =
+						[phase(k,l) for k in xs[i:refinement:end], l in ys[j:refinement:end]]
+				end
 			end
 		end
+		return out
 	else
 		throw(DomainError(refinement, "refinement must be a positive integer"))
 	end
 end
 
-function discretizePhase(S::SLM,phase::Function;offset=[0,0])
+function discretizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
 	return discretizePhase(S,pixelizePhase(S,phase,offset=offset,refinement=refinement))
 end
 
-#function plt(p)
+#function plt(p;step=1)
 #	# A useful function for visualizing phases
 #	xs = vec([i for i=1:size(p)[1], j=1:size(p)[2]])
 #	ys = vec([j for i=1:size(p)[1], j=1:size(p)[2]])
-#	plot(xs,ys,vec(p),seriestype=:scatter)
+#	plot(xs[1:step:end],ys[1:step:end],vec(p)[1:step:end],seriestype=:scatter)
 #end
 
 #---------------- Fourier transform -----------------------------

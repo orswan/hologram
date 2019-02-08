@@ -39,12 +39,21 @@ end
 
 SLM(pixels,pixelSize,voltLevels) = SLM(pixels,pixelSize,pixels.*pixelSize,voltLevels)
 
+function onPixel(S::SLM,x,y)
+	# Returns true if the point (x,y) lies on a pixel.
+	
+end
+
 Stest = SLM((10,8),(2.4,3.4),range(0,stop=3.4pi,length=102))
 Stest2 = SLM((10,8),(2.4,3.4),range(0,stop=2pi,length=52))
 S1920 = SLM((1920,1152),(9.2,9.2),range(0,stop=2pi,length=4096))
 S512 = SLM((512,512),(15,15),range(0,stop=2pi,length=50))
 
 #------------ Phase discretization ------------------------------
+
+function nearestLatticeMod(x::Number,r::AbstractRange,modwhat::Number)
+	
+end
 
 function discretizePhase(S::SLM,phase::Number)
 	# Discretizes and mods phase onto available SLM levels of S.
@@ -56,14 +65,27 @@ function discretizePhase(S::SLM,phase::Array{<:Number})
 	return [S.voltLevels[findmin(abs.(mod(p,2pi) .- mod.(S.voltLevels,2pi)))[2]] for p in phase]
 end
 
-function pixelizePhase(S::SLM,phase::Function;offset=[0,0])
-	pixelx = S.pixelx .- S.centerx .+ offset[1]
-	pixely = S.pixely .- S.centery .+ offset[2]
-	return [phase(i,j) for i in pixelx, j in pixely]
+function pixelizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
+	if refinement==1
+		pixelx = S.pixelx .- S.centerx .+ offset[1]
+		pixely = S.pixely .- S.centery .+ offset[2]
+		return [phase(i,j) for i in pixelx, j in pixely]
+	elseif refinement>1
+		xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement)
+		ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement)
+		out = zeros(length(xs),length(ys))
+		for i=1:refinement
+			for j=1:refinement
+				if 
+			end
+		end
+	else
+		throw(DomainError(refinement, "refinement must be a positive integer"))
+	end
 end
 
 function discretizePhase(S::SLM,phase::Function;offset=[0,0])
-	return discretizePhase(S,pixelizePhase(S,phase))
+	return discretizePhase(S,pixelizePhase(S,phase,offset=offset,refinement=refinement))
 end
 
 #function plt(p)

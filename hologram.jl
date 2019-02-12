@@ -2,7 +2,7 @@
 module hologram
 
 using LinearAlgebra
-#using FFTW
+using FFTW
 
 #------------ Typical usage -------------------------------------
 """
@@ -58,7 +58,7 @@ Stest2 = SLM((10,8),(2.4,3.4),range(0,stop=2pi,length=52))
 Stest3 = SLM((10,8),(2.4,2.4),(70.0,68.0),range(0,stop=2pi,length=52))
 S1920 = SLM((1920,1152),(9.2,9.2),range(0,stop=2pi,length=4096))
 S512 = SLM((512,512),(15,15),range(0,stop=2pi,length=50))
-S512bad = SLM((512,512),(15,15),(9000,9000),range(0,stop=2pi,length=50))
+S512bad = SLM((512,512),(15,15),(14000,14000),range(0,stop=2pi,length=50))
 
 #------------ Phase discretization ------------------------------
 
@@ -129,12 +129,14 @@ function discretizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
 	return discretizePhase(S,pixelizePhase(S,phase,offset=offset,refinement=refinement))
 end
 
-#function plt(p;step=1)
-#	# A useful function for visualizing phases
-#	xs = vec([i for i=1:size(p)[1], j=1:size(p)[2]])
-#	ys = vec([j for i=1:size(p)[1], j=1:size(p)[2]])
-#	plot(xs[1:step:end],ys[1:step:end],vec(p)[1:step:end],seriestype=:scatter)
-#end
+"""
+function plt(p;step=1)
+	# A useful function for visualizing phases
+	xs = vec([i for i=1:size(p)[1], j=1:size(p)[2]])
+	ys = vec([j for i=1:size(p)[1], j=1:size(p)[2]])
+	plot(xs[1:step:end],ys[1:step:end],vec(p)[1:step:end],seriestype=:scatter)
+end
+"""
 
 #---------------- Fourier transform -----------------------------
 
@@ -154,7 +156,8 @@ function Efield(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number; r
 	if (typeof(phase)<:Array{<:Number,2}) && (size(phase) != (S.pixels...,))
 		throw(ArgumentError,"Phase and number of pixels inconsistent")
 	end
-	discPhase = subdivide(discretizePhase(S,phase),refinement)
+	#discPhase = subdivide(discretizePhase(S,phase),refinement)
+	discPhase = discretizePhase(S,phase,refinement=refinement)
 	xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement)
 	ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement)
 	r2 = (xs .- S.centerx).^2 .+ (ys' .- S.centery).^2		# Radius squared
@@ -164,7 +167,7 @@ end
 function ft(S::SLM,phase::Union{Array{<:Number,2},Function},waist::Number;wrap=true,refinement::Int=1)
 	# Computes Fourier transform of phase with Gaussian envelope of given waist.
 	if wrap
-		out = abs.(fft(Efield(S,phase,waist))).^2
+		out = abs.(fft(Efield(S,phase,waist,refinement=refinement))).^2
 		sx,sy = size(out)
 		return circshift(out, [floor(sx/2),floor(sy/2)])
 	else

@@ -111,11 +111,13 @@ function pixelizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)
 		xs = midpointLattice(0,S.size[1],S.pixels[1]*refinement) .- S.centerx .+ offset[1]
 		ys = midpointLattice(0,S.size[2],S.pixels[2]*refinement) .- S.centery .+ offset[2]
 		out = zeros(length(xs),length(ys))
+		pixelx = S.pixelx .- S.centerx .+ offset[1]
+		pixely = S.pixely .- S.centery .+ offset[2]
+		phases = [phase(i,j) for i in pixelx, j in pixely]
 		for i=1:refinement
 			for j=1:refinement
 				if onPixel(S,xs[i],ys[j])
-					out[i:refinement:end,j:refinement:end] =
-						[phase(k,l) for k in xs[i:refinement:end], l in ys[j:refinement:end]]
+					out[i:refinement:end,j:refinement:end] = phases
 				end
 			end
 		end
@@ -181,6 +183,27 @@ function hololens(S::SLM,f::Number)
 	
 	
 end
+
+
+
+#------------------ Test code -------------------------------------
+
+"""
+import hologram
+H = hologram
+p(x,y) = (x.^2 + y.^2)/r0 + x/x0
+x0 = 1000
+r0 = 10
+S = H.SLM((10,10),(4,4),(50,50),range(0,stop=2pi,length=50))
+
+plot(H.pixelizePhase(S,p,refinement=10),st=:surface)
+plot(H.discretizePhase(S,p,refinement=10),st=:surface)
+plot(H.ft(S,p,20,refinement=10)
+x0 = 3
+plot(H.ft(S,p,20,refinement=10)
+
+"""
+
 
 
 end

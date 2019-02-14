@@ -191,16 +191,16 @@ end
 """
 import hologram
 H = hologram
-p(x,y) = (x.^2 + y.^2)/r0 + x/x0
+p(x,y) = (x.^2 + y.^2)/r0^2 + x/x0
 x0 = 1000
 r0 = 10
 S = H.SLM((10,10),(4,4),(50,50),range(0,stop=2pi,length=50))
 
 plot(H.pixelizePhase(S,p,refinement=10),st=:surface)
 plot(H.discretizePhase(S,p,refinement=10),st=:surface)
-plot(H.ft(S,p,20,refinement=10)
+plot(H.ft(S,p,20,refinement=10),st=:surface,c=:blues)
 x0 = 3
-plot(H.ft(S,p,20,refinement=10)
+plot(H.ft(S,p,20,refinement=10),st=:surface,c=:blues)
 
 """
 

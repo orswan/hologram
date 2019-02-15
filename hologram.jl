@@ -92,14 +92,20 @@ end
 
 function discretizePhase(S::SLM,phase::Number)
 	# Discretizes and mods phase onto available SLM levels of S.
-	 return S.voltLevels[ findmin(abs.( mod(phase,2pi) .- mod.(S.voltLevels,2pi) ))[2] ]
-#	return latticize(phase,S.voltLevels,2pi)		# This has about the same speed, but is faster without the 2pi.
+	if S.voltLevels[end]<=2pi		# In this case we can speed up the phase discretization with latticize
+		return latticize(mod(phase,2pi),S.voltLevels)
+	else							# In the general case, latticize is no faster and takes more memory than this:
+		return S.voltLevels[ findmin(abs.( mod(phase,2pi) .- mod.(S.voltLevels,2pi) ))[2] ]
+	end
 end
 
 function discretizePhase(S::SLM,phase::Array{<:Number})
 	# Discretizes an array of phases
-	return [S.voltLevels[findmin(abs.(mod(p,2pi) .- mod.(S.voltLevels,2pi)))[2]] for p in phase]
-#	return [latticize(p,S.voltLevels,2pi) for p in phase]		# This has about the same speed, but is faster without the 2pi.
+	if S.voltLevels[end]<=2pi		# In this case we can speed up the phase discretization with latticize
+		return [latticize(p,S.voltLevels) for p in mod.(phase,2pi)]
+	else							# In the general case, latticize is no faster and takes more memory than this:
+		return [S.voltLevels[findmin(abs.(mod(p,2pi) .- mod.(S.voltLevels,2pi)))[2]] for p in phase]
+	end
 end
 
 function pixelizePhase(S::SLM,phase::Function;offset=[0,0],refinement=1)

@@ -44,6 +44,14 @@ end
 
 SLM(pixels,pixelSize,voltLevels) = SLM(pixels,pixelSize,pixels.*pixelSize,voltLevels)
 
+function Base.show(io::IO, S::SLM)
+	println("Pixels: \t", S.pixels)
+	println("Pixel size: \t", S.pixelSize)
+	println("SLM size: \t", S.size)
+	println("Fill factor: \t", (S.pixels[1]*S.pixels[2]*S.pixelSize[1]*S.pixelSize[2])/(S.size[1]*S.size[2]))
+	println("# volt. levels:\t", length(S.voltLevels))
+end
+
 function onPixel(S::SLM,x,y)
 	# Returns true if the point (x,y) lies on a pixel.
 #	println(latticize(x,S.cpixelx))
